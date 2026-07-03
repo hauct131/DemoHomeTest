@@ -314,5 +314,5 @@ Internal project - OptiSigns
 
 ## Contact
 
-Để hỏi, report issues, hoặc suggest features: [your contact info]
+Để hỏi, report issues, hoặc suggest features: [chiemtrunghau131@gmail.com]
 # DemoHomeTest
