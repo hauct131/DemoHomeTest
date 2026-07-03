@@ -65,9 +65,11 @@ To maintain absolute semantic context and prevent LLM citations from breaking:
 
 ## Daily Job Logs
 
-The pipeline is dockerized and can be scheduled to run daily (e.g., using GitHub Actions, Render, or Railway Cron Jobs) using `vector_store_state.json` to compute delta hashes (SHA-256) of each chunk and upload only modifications.
+The pipeline is dockerized and scheduled to run daily on **Railway** (cron: `0 6 * * *` UTC) using `data/vector_store_state.json` to compute delta hashes (SHA-256) of each chunk and upload only modifications.
 
-- **Live Daily Cron Job Logs**: [GitHub Actions Run Logs](https://github.com/hauct131/DemoHomeTest/actions)
+- **Full run log (last run artefact)**: [Google Doc – daily job log](https://docs.google.com/document/d/1w0QCNyhsHMK89Z33AapDSln9AlqHgcD5zDnQiwXfQ7M/edit?usp=sharing)
+  - Confirms delta-sync works correctly across deploys: out of 1318 chunks, **1317 were correctly skipped as unchanged**, only 1 changed chunk was re-uploaded — proving `vector_store_state.json` persists on the Railway volume between runs.
+  - Final summary from that run: `Added: 1, Updated: 0, Skipped: 1317, Failed: 0`.
 
 ---
 
