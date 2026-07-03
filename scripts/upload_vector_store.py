@@ -63,26 +63,19 @@ def partition_chunks(chunks, state):
     return to_upload, unchanged
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Upload chunks lên OpenAI Vector Store")
-    parser.add_argument("--dry-run", action="store_true", help="Chỉ build file, không gọi API")
-    parser.add_argument("--force", action="store_true", help="Upload lại toàn bộ, bỏ qua delta-skip")
-    parser.add_argument("--chunks", default=str(DEFAULT_CHUNKS_PATH), help="Đường dẫn chunks.jsonl")
-    parser.add_argument("--max-workers", type=int, default=8, help="Số thread upload song song")
-    parser.add_argument(
-        "--limit", type=int, default=None,
-        help="Giới hạn số chunk upload trong lần chạy này (vd --limit 20 để test nhanh "
-             "trước khi upload toàn bộ 1300+ chunk). Không set = upload hết."
-    )
-    args = parser.parse_args()
-
-    load_dotenv()
-
-    print("=" * 60)
-    print("PHASE 2: UPLOAD VECTOR STORE")
-    print("=" * 60)
-
-    chunks_path = Path(args.chunks)
+def run_upload(
+    dry_run: bool = False,
+    force: bool = False,
+    chunks_path: str = None,
+    max_workers: int = 8,
+    limit: int = None,
+) -> None:
+    """
+    Chạy quá trình upload/delta-upload lên OpenAI Vector Store.
+    """
+    if chunks_path is None:
+        chunks_path = DEFAULT_CHUNKS_PATH
+    chunks_path = Path(chunks_path)
     if not chunks_path.exists():
         print(f"Không tìm thấy {chunks_path}. Chạy `python3 main.py` (Phase 1) trước.")
         sys.exit(1)
@@ -93,7 +86,7 @@ def main():
 
     state = load_state(DEFAULT_STATE_PATH)
 
-    if args.force:
+    if force:
         to_upload, unchanged = chunks, []
     else:
         to_upload, unchanged = partition_chunks(chunks, state)
@@ -102,13 +95,13 @@ def main():
     print(f"    Cần upload (mới/đổi): {len(to_upload)}")
     print(f"    Bỏ qua (không đổi):   {len(unchanged)}")
 
-    if args.limit is not None:
-        held_back = max(0, len(to_upload) - args.limit)
-        to_upload = to_upload[:args.limit]
-        print(f"    --limit {args.limit} -> chỉ upload {len(to_upload)} chunk "
+    if limit is not None:
+        held_back = max(0, len(to_upload) - limit)
+        to_upload = to_upload[:limit]
+        print(f"    --limit {limit} -> chỉ upload {len(to_upload)} chunk "
               f"(giữ lại {held_back} chunk khác cho lần chạy sau)")
 
-    if args.dry_run:
+    if dry_run:
         print("\n[DRY-RUN] Build nội dung file mẫu (không gọi OpenAI API)...")
         TMP_UPLOAD_DIR.mkdir(exist_ok=True)
         sample = to_upload[:3] if to_upload else chunks[:3]
@@ -133,17 +126,12 @@ def main():
 
     print(f"\n[5] Upload {len(to_upload)} file lên Vector Store {vector_store_id}...")
     results = upload_chunks(
-        client, vector_store_id, to_upload, file_paths, max_workers=args.max_workers
+        client, vector_store_id, to_upload, file_paths, max_workers=max_workers
     )
 
     result_map = {r["chunk_id"]: r for r in results}
 
     # Cập nhật state với kết quả — LƯU NGAY SAU MỖI CHUNK, không đợi hết batch.
-    # Lý do: nếu script bị gián đoạn (mất mạng, Ctrl+C, rate limit...) giữa
-    # chừng, những chunk đã upload thành công TRƯỚC đó vẫn phải được ghi vào
-    # state ngay lập tức. Nếu chỉ save_state() 1 lần ở cuối, các file đã thật
-    # sự tồn tại trên OpenAI nhưng chưa kịp ghi state sẽ bị coi là "chưa
-    # upload" ở lần chạy sau -> upload lại -> tạo file trùng trên OpenAI.
     added, updated, failed = 0, 0, 0
     for c in to_upload:
         r = result_map.get(c["chunk_id"])
@@ -177,12 +165,35 @@ def main():
     print(f"Added:   {added}")
     print(f"Updated: {updated}")
     print(f"Skipped (không đổi): {len(unchanged)}")
-    if args.limit is not None:
+    if limit is not None:
         print(f"Giữ lại do --limit:  {held_back}")
     print(f"Failed:  {failed}")
     print(f"\nVector Store ID: {vector_store_id}")
     print("-> Playground: Prompts/Chat > Tools > File search > dán Vector Store ID này")
     print("=" * 60)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Upload chunks lên OpenAI Vector Store")
+    parser.add_argument("--dry-run", action="store_true", help="Chỉ build file, không gọi API")
+    parser.add_argument("--force", action="store_true", help="Upload lại toàn bộ, bỏ qua delta-skip")
+    parser.add_argument("--chunks", default=str(DEFAULT_CHUNKS_PATH), help="Đường dẫn chunks.jsonl")
+    parser.add_argument("--max-workers", type=int, default=8, help="Số thread upload song song")
+    parser.add_argument(
+        "--limit", type=int, default=None,
+        help="Giới hạn số chunk upload trong lần chạy này (vd --limit 20 để test nhanh "
+             "trước khi upload toàn bộ 1300+ chunk). Không set = upload hết."
+    )
+    args = parser.parse_args()
+
+    load_dotenv()
+    run_upload(
+        dry_run=args.dry_run,
+        force=args.force,
+        chunks_path=args.chunks,
+        max_workers=args.max_workers,
+        limit=args.limit
+    )
 
 
 if __name__ == "__main__":
