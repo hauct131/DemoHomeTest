@@ -1,0 +1,46 @@
+---
+title: "How to Clear Cache on Your Fire Stick device"
+source_url: "https://support.optisigns.com/hc/en-us/articles/360056087613-How-to-Clear-Cache-on-Your-Fire-Stick-device"
+article_id: 360056087613
+section_id: 26319570450195
+created_at: "2020-09-26T00:37:35Z"
+updated_at: "2026-05-30T19:09:27Z"
+labels: []
+---
+# How to Clear Cache on Your Fire Stick device
+
+When the OptiSigns stops working correctly, one of the most common causes is corrupted data. In some cases, OptiSigns may be slow down and doesn't perform well due to a cache that has become too large. In these cases, the solution is to clear the cache.
+
+Let's begin,
+
+## **How to clear the cache on your Fire Stick device**
+
+To clean the cache on your Fire Stick, go to Settings > Applications > Manage Installed Applications. Then select OptiSigns app, and select Clear cache.
+
+1. From your Fire Stick homepage go to**"Settings"**
+
+[Image: Fire\_Stick-1.png]
+
+2. Scroll through and click **"Applications"**
+
+[Image: Fire\_Stick-17\_Application.png]
+
+3. Then click **"Manage Installed Applications"**
+
+[Image: Fire\_Stick-18\_Management.png]
+
+4. Select **OptiSigns** app that you want to clear cache
+
+[Image: Fire\_Stick-19\_Management\_OptiSigns.png]
+
+5. Then scroll down and click **"Clear cache"**
+
+[Image: Fire\_Stick-21\_clear\_cache.png]
+
+Note: If OptiSigns app still doesn't work correctly, repeat this process, and select **Clear data**.
+
+[Image: Fire\_Stick-20\_clean\_data.png]
+
+After that, OptiSigns app should work correctly on your Fire Stick. If it still doesn't work correctly after clearing the cache in the OptiSigns app, you can perform a **"**[Factory Reset](how-to-factory-reset-your-fire-stick-device.md)**"** to clear all of the data that's stored on your device.
+
+If you have feedback on how to make the how-to guides better, please let us know at: [our support team](mailto:our support team)
