@@ -4,12 +4,83 @@ Audit chất lượng chunks: phát hiện vấn đề, tạo báo cáo.
 
 import json
 import re
-from collections import Counter
+import hashlib
+from collections import Counter, defaultdict
 from typing import List, Dict
 from pathlib import Path
 
 from .utils import count_tokens
 from . import config
+
+
+# ============================================================
+# BOILERPLATE CÒN SÓT (không bị 3 tầng regex trong markdown_conversion
+# bắt hết, vì đây là các cụm ngắn nằm XEN GIỮA nội dung thật, không
+# đứng riêng thành 1 heading/paragraph để tầng 1-2 xóa nguyên khối)
+# ============================================================
+LEFTOVER_BOILERPLATE_PATTERNS: list[str] = [
+    r"\byou'?re\s+all\s+set\b",
+    r"\bthat'?s\s+it\b",
+    r"\bthat'?s\s+all\b",
+    r"\bfeel\s+free\s+to\s+reach\s+out\b",
+    r"\blet\s+us\s+know\s+if\s+you\s+have\s+(?:any\s+)?questions?\b",
+    r"\bhappy\s+signing\b",
+]
+
+
+def _normalize_for_dedup(text: str) -> str:
+    """
+    Chuẩn hóa text để so khớp duplicate: bỏ hết markdown syntax, số liệu
+    thay đổi (id, ngày), khoảng trắng thừa, chuyển thường.
+
+    Args:
+        text: Chunk text
+
+    Returns:
+        Chuỗi normalized dùng để hash so trùng
+    """
+    t = text.lower()
+    t = re.sub(r"!\[.*?\]\(.*?\)", "", t)          # images
+    t = re.sub(r"\[image[^\]]*\]", "", t)            # image placeholder
+    t = re.sub(r"https?://\S+", "", t)                # urls
+    t = re.sub(r"#{1,6}\s*", "", t)                   # heading markers
+    t = re.sub(r"[^a-z0-9\s]", "", t)                 # markdown punctuation
+    t = re.sub(r"\s+", " ", t).strip()
+    return t
+
+
+def find_duplicate_chunks(chunks: List[Dict]) -> Dict[str, List[str]]:
+    """
+    Phát hiện chunk trùng lặp / gần trùng lặp trên TOÀN BỘ corpus.
+
+    Dùng exact-match trên nội dung đã normalize (bỏ markdown syntax, URL,
+    ảnh) - đủ để bắt các trường hợp phổ biến nhất trong support docs:
+    đoạn cảnh báo/table/note bị lặp lại y hệt ở nhiều bài khác nhau.
+
+    Args:
+        chunks: Toàn bộ danh sách chunk (đã enrich metadata)
+
+    Returns:
+        {chunk_id: [other_chunk_ids_trung_voi_no]} - chỉ gồm chunk có ít
+        nhất 1 bản trùng
+    """
+    groups: Dict[str, List[str]] = defaultdict(list)
+
+    for c in chunks:
+        normalized = _normalize_for_dedup(c["text"])
+        # Bỏ qua chunk quá ngắn khi normalize (dễ trùng ngẫu nhiên, không đáng gắn cờ)
+        if len(normalized) < 40:
+            continue
+        h = hashlib.md5(normalized.encode("utf-8")).hexdigest()
+        groups[h].append(c["chunk_id"])
+
+    duplicates: Dict[str, List[str]] = {}
+    for ids in groups.values():
+        if len(ids) > 1:
+            for cid in ids:
+                duplicates[cid] = [x for x in ids if x != cid]
+
+    return duplicates
 
 
 def audit_chunk(text: str) -> List[str]:
@@ -27,6 +98,13 @@ def audit_chunk(text: str) -> List[str]:
         - starts_mid_table: Chunk bắt đầu với dòng table nhưng không có header
         - too_short: Quá ngắn (< 15 tokens)
         - too_long: Quá dài (> 1.5x max_tokens)
+        - oversized_code_block: Chunk là 1 code block nguyên khối vượt quá
+          max_tokens (ngoại lệ có chủ đích - xem split_oversized_unit)
+        - possible_boilerplate_leftover: Có cụm boilerplate ngắn còn sót
+          (không đứng riêng thành heading/paragraph nên 2 tầng regex trước
+          không bắt được)
+        - low_information_density: Chunk phần lớn là markdown syntax
+          (link/table/ảnh placeholder), rất ít nội dung chữ thực sự
     
     Args:
         text: Chunk text
@@ -84,10 +162,30 @@ def audit_chunk(text: str) -> List[str]:
     if tok < config.MIN_CHUNK_TOKENS:
         issues.append("too_short")
     
-    # 7. Too long: > 1.5x max_tokens
+    # 7. Too long / oversized code block
     if tok > config.MAX_CHUNK_TOKENS * config.MAX_CHUNK_TOKENS_THRESHOLD:
-        issues.append("too_long")
-    
+        is_pure_code_block = bool(re.match(r"^```[\s\S]*```\s*$", stripped))
+        if is_pure_code_block:
+            issues.append("oversized_code_block")
+        else:
+            issues.append("too_long")
+
+    # 8. Boilerplate còn sót (cụm ngắn nằm giữa nội dung thật)
+    for pat in LEFTOVER_BOILERPLATE_PATTERNS:
+        if re.search(pat, stripped, flags=re.IGNORECASE):
+            issues.append("possible_boilerplate_leftover")
+            break
+
+    # 9. Low information density: phần lớn là markdown syntax, ít chữ thật
+    text_only = re.sub(r"!\[.*?\]\(.*?\)", "", stripped)   # images
+    text_only = re.sub(r"\[image[^\]]*\]", "", text_only, flags=re.IGNORECASE)
+    text_only = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text_only)  # links -> giữ label
+    text_only = re.sub(r"[#*`|>_-]", "", text_only)
+    word_chars = len(re.sub(r"\s", "", text_only))
+    total_chars = max(len(stripped), 1)
+    if tok >= config.MIN_CHUNK_TOKENS and (word_chars / total_chars) < 0.35:
+        issues.append("low_information_density")
+
     return issues
 
 
@@ -116,26 +214,38 @@ def run_audit(
     
     issue_counter: Counter = Counter()
     flagged = []
-    
+
+    # Duplicate detection chạy corpus-wide (không phải per-chunk như audit_chunk)
+    duplicate_map = find_duplicate_chunks(chunks)
+
     for c in chunks:
         issues = audit_chunk(c["text"])
+        if c["chunk_id"] in duplicate_map:
+            issues = issues + ["duplicate_content"]
+
         if issues:
             issue_counter.update(issues)
-            flagged.append({
+            entry = {
                 **c,
-                "issues": issues
-            })
+                "issues": issues,
+            }
+            if c["chunk_id"] in duplicate_map:
+                entry["duplicate_of"] = duplicate_map[c["chunk_id"]]
+            flagged.append(entry)
     
     # Ghi báo cáo JSONL
     with open(report_path, "w", encoding="utf-8") as f:
         for item in flagged:
-            f.write(json.dumps({
+            row = {
                 "chunk_id": item["chunk_id"],
                 "article_title": item["article_title"],
                 "source_url": item["source_url"],
                 "issues": item["issues"],
                 "text_preview": item["text"][:200],
-            }, ensure_ascii=False) + "\n")
+            }
+            if "duplicate_of" in item:
+                row["duplicate_of"] = item["duplicate_of"]
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
     
     # Tính thống kê
     total = len(chunks)

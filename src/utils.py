@@ -105,26 +105,29 @@ def normalize_whitespace(text: str) -> str:
 
 def shorten_urls(text: str, max_url_len: int = 80) -> str:
     """
-    Giữ nguyên text hiển thị nhưng thay URL dài bằng placeholder để giảm token.
-    
-    Ví dụ:
-        [My Link](https://very-long-url.com/path/to/something)
-        -> [My Link](link)  (nếu URL dài hơn max_url_len)
-    
+    Giữ nguyên URL thật (để link vẫn hoạt động), chỉ rút gọn ANCHOR TEXT
+    hiển thị nếu nó quá dài, nhằm giảm token mà không làm hỏng link.
+
+    Lưu ý: version cũ từng thay cả URL bằng literal string "link", khiến
+    link bị hỏng hoàn toàn (không trỏ đi đâu). Đã sửa để URL luôn được giữ nguyên.
+
     Args:
         text: Markdown text
-        max_url_len: Ngưỡng độ dài URL
-        
+        max_url_len: Ngưỡng độ dài anchor text để quyết định có rút gọn hay không
+
     Returns:
-        Text sau khi xử lý
+        Text sau khi xử lý (link vẫn resolve đúng)
     """
     def replace_url(match):
         link_text = match.group(1)
         url = match.group(2)
-        if len(url) > max_url_len:
-            return f"[{link_text}](link)"
+        # Chỉ rút gọn anchor text nếu nó dài (tiết kiệm token),
+        # KHÔNG bao giờ động vào phần url thật.
+        if len(link_text) > max_url_len:
+            short_display = url if len(url) <= max_url_len else url[:max_url_len - 3] + "..."
+            return f"[{short_display}]({url})"
         return match.group(0)
-    
+
     return re.sub(
         r"\[([^\]]+)\]\((https?://[^\s)]+)\)",
         replace_url,

@@ -58,10 +58,21 @@ BOILERPLATE_AD_PARAGRAPH_REGEXES: list[str] = [
     r"[\s\S]*?\[?" + EMAIL_ANY_REGEX + r"\]?(?:\(mailto:[^)]*\))?\.?",
 ]
 
-# TẦNG 3: Cụm "That's all!" / "That's it!" / "Congratulations!"
+# TẦNG 3: Cụm "That's all!" / "That's it!" / "Congratulations!" +
+# các câu CTA lặp lại kiểu "feel free to reach out..." / "let us know if you
+# have questions..." nằm XEN GIỮA nội dung thật (không đứng riêng thành
+# heading/paragraph nên tầng 1-2 không xóa được nguyên khối).
+#
+# Chỉ xóa TỪ cụm trigger ĐẾN HẾT CÂU (dấu chấm/xuống dòng gần nhất), KHÔNG
+# xóa cả câu, để giữ lại phần thông tin thật đứng trước (vd: "We also accept
+# Purchase Orders—feel free to reach out for a quote." -> giữ lại "We also
+# accept Purchase Orders", chỉ xóa phần CTA phía sau).
 BOILERPLATE_PHRASE_REGEXES: list[str] = [
     r"\*{0,2}that'?s\s*all\s*!?\*{0,2}\s*(?:congratulations?!?\*{0,2})?\s*",
     r"\*{0,2}that'?s\s*it\s*!?\*{0,2}\s*",
+    r"[—\-:,]?\s*\*{0,2}feel\s+free\s+to\s+reach\s+out\b[^.\n]*\.?",
+    r"[—\-:,]?\s*\*{0,2}(?:please\s+)?let\s+us\s+know\s+if\s+you\s+have\s+"
+    r"(?:any\s+)?questions?(?:\s+or\s+feedback)?[^.\n]*\.?",
 ]
 
 BOILERPLATE_INLINE_REGEXES: list[str] = BOILERPLATE_AD_PARAGRAPH_REGEXES + BOILERPLATE_PHRASE_REGEXES

@@ -196,6 +196,22 @@ def process_article(
         # Enrich chunks với metadata
         chunks_with_meta = []
         for i, c in enumerate(chunks):
+            # "text": nội dung raw của chunk (dùng cho audit + hiển thị preview,
+            #   giữ nguyên để các rule audit dựa trên cấu trúc markdown thô
+            #   (starts_mid_sentence, broken_code_block, v.v.) không bị lệch).
+            # "embedding_text": text thực sự nên đưa vào lúc embed lên Vector DB -
+            #   có prefix "Article Title — Section Heading" để mô hình embedding
+            #   "thấy" được ngữ cảnh của chunk, thay vì chunk trơ trọi không biết
+            #   đang nói về chủ đề gì (quan trọng khi chunk không tự lặp lại từ khóa
+            #   chính, ví dụ đoạn step 3/4 của 1 hướng dẫn).
+            heading = c["heading"].strip()
+            title = article["title"].strip()
+            if heading and heading.lower() != title.lower():
+                context_header = f"{title} — {heading}"
+            else:
+                context_header = title
+            embedding_text = f"{context_header}\n\n{c['text']}"
+
             chunks_with_meta.append({
                 "chunk_id": f"{article['id']}-{i}",
                 "article_id": article["id"],
@@ -206,7 +222,9 @@ def process_article(
                 "updated_at": article.get("updated_at"),
                 "labels": article.get("label_names") or [],
                 "text": c["text"],
+                "embedding_text": embedding_text,
                 "token_count": count_tokens(c["text"]),
+                "embedding_token_count": count_tokens(embedding_text),
             })
         
         return slug, chunks_with_meta
@@ -373,6 +391,3 @@ def run_pipeline(
         "output_audit": str(output_audit),
         "audit_stats": audit_stats,
     }
-
-
-

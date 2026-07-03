@@ -31,6 +31,64 @@ def split_by_heading(markdown_text: str) -> List[str]:
     return [p for p in parts if p.strip()]
 
 
+def split_oversized_unit(unit: str, max_tokens: int) -> List[str]:
+    """
+    RECURSIVE SPLITTER: chia nhỏ tiếp 1 atomic unit nếu tự nó đã vượt max_tokens
+    (ví dụ 1 đoạn văn rất dài, 1 list dài không có dòng trống ngăn cách).
+
+    Đây là fallback an toàn - nếu không có bước này, 1 paragraph khổng lồ sẽ
+    trở thành 1 chunk vượt xa max_tokens (chỉ bị audit "too_long" bắt khi
+    > 1.5x ngưỡng, còn vùng max_tokens..1.5x sẽ lọt lưới).
+
+    Quy tắc:
+        - Code block (```...```) KHÔNG BAO GIỜ bị chia -> giữ nguyên vẹn cú pháp,
+          dù có thể vượt max_tokens (chấp nhận đánh đổi, được audit gắn cờ riêng
+          "oversized_code_block" để dễ nhận biết đây là ngoại lệ có chủ đích).
+        - Text thường: chia theo câu (sentence boundary). Nếu 1 câu đơn lẻ vẫn
+          quá dài (hiếm gặp), chia cứng theo số ký tự ước lượng.
+
+    Args:
+        unit: Atomic unit (paragraph hoặc code block)
+        max_tokens: Ngưỡng token tối đa
+
+    Returns:
+        List các sub-unit, mỗi sub-unit <= max_tokens (trừ code block)
+    """
+    if unit.startswith("```"):
+        return [unit]
+
+    # Chia theo câu: sau dấu ".", "!", "?", ":" + khoảng trắng + chữ hoa/số tiếp theo
+    sentences = re.split(r"(?<=[.!?:])\s+(?=[A-ZÀ-Ỹ0-9\-\*])", unit)
+    sentences = [s for s in sentences if s.strip()]
+
+    if len(sentences) <= 1:
+        # Không tách được theo câu (vd 1 dòng dài không dấu câu) -> chia cứng theo ký tự
+        approx_chars_per_chunk = max_tokens * 4  # ước lượng ~4 ký tự/token
+        return [
+            unit[i:i + approx_chars_per_chunk]
+            for i in range(0, len(unit), approx_chars_per_chunk)
+        ] or [unit]
+
+    # Gom câu lại thành sub-units vừa max_tokens
+    sub_units: List[str] = []
+    current_sents: List[str] = []
+    current_tok = 0
+
+    for sent in sentences:
+        s_tok = count_tokens(sent)
+        if current_tok + s_tok > max_tokens and current_sents:
+            sub_units.append(" ".join(current_sents))
+            current_sents = []
+            current_tok = 0
+        current_sents.append(sent)
+        current_tok += s_tok
+
+    if current_sents:
+        sub_units.append(" ".join(current_sents))
+
+    return sub_units
+
+
 def split_long_text(
     text: str,
     max_tokens: int,
@@ -44,6 +102,8 @@ def split_long_text(
     
     Algorithm:
         1. Tách text thành atomic units (paragraph hoặc code block)
+        1b. RECURSIVE SPLIT: nếu 1 atomic unit tự nó đã > max_tokens,
+            chia nhỏ tiếp theo câu (xem split_oversized_unit)
         2. Xếp units vào chunks, nếu vượt max_tokens -> tạo chunk mới
         3. Giữ overlap bằng cách nhồi nhúng unit cuối của chunk trước
     
@@ -68,7 +128,12 @@ def split_long_text(
         else:
             # Text thường -> tách theo paragraph (dòng trống)
             for p in re.split(r"\n\s*\n", seg):
-                if p.strip():
+                if not p.strip():
+                    continue
+                # RECURSIVE SPLIT: paragraph tự nó quá dài -> chia tiếp theo câu
+                if count_tokens(p) > max_tokens:
+                    atomic_units.extend(split_oversized_unit(p, max_tokens))
+                else:
                     atomic_units.append(p)
     
     # Xếp units vào chunks
@@ -101,6 +166,7 @@ def split_long_text(
         chunks.append("\n\n".join(current))
     
     return chunks
+
 
 
 def is_heading_only(text: str) -> bool:
