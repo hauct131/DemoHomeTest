@@ -14,7 +14,7 @@ from . import config
 
 
 # ============================================================
-# BOILERPLATE CÒN SÓT (không bị 3 tầng regex trong markdown_conversion
+# BOILERPLATE CÒN SÓT (không bị 3 tầng regex trong markdown_converter
 # bắt hết, vì đây là các cụm ngắn nằm XEN GIỮA nội dung thật, không
 # đứng riêng thành 1 heading/paragraph để tầng 1-2 xóa nguyên khối)
 # ============================================================

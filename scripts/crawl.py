@@ -1,3 +1,12 @@
+import sys
+from pathlib import Path
+
+# Thêm project root vào sys.path để import src/
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+from src import config
 import requests
 import time
 import json
@@ -30,5 +39,6 @@ articles = get_all("articles")
 print(f"{len(categories)} categories, {len(sections)} sections, {len(articles)} articles")
 
 # Lưu ra file
-with open("optisigns_articles.json", "w", encoding="utf-8") as f:
+config.INPUT_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
+with open(config.INPUT_JSON_PATH, "w", encoding="utf-8") as f:
     json.dump(articles, f, ensure_ascii=False, indent=2)

@@ -8,16 +8,19 @@ from pathlib import Path
 # ============================================================
 # ĐƯỜNG DẪN FILE
 # ============================================================
-INPUT_JSON: str = "optisigns_articles.json"
-OUTPUT_DOCS_DIR: str = "docs"
-OUTPUT_CHUNKS_JSONL: str = "chunks.jsonl"
-OUTPUT_AUDIT_JSONL: str = "audit_report.jsonl"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# Chuyển đổi string thành Path objects cho dễ dàng sử dụng
-INPUT_JSON_PATH: Path = Path(INPUT_JSON)
-OUTPUT_DOCS_PATH: Path = Path(OUTPUT_DOCS_DIR)
-OUTPUT_CHUNKS_PATH: Path = Path(OUTPUT_CHUNKS_JSONL)
-OUTPUT_AUDIT_PATH: Path = Path(OUTPUT_AUDIT_JSONL)
+INPUT_JSON_PATH: Path = PROJECT_ROOT / "data" / "optisigns_articles.json"
+OUTPUT_DOCS_PATH: Path = PROJECT_ROOT / "output" / "articles"
+OUTPUT_CHUNKS_PATH: Path = PROJECT_ROOT / "output" / "chunks.jsonl"
+OUTPUT_AUDIT_PATH: Path = PROJECT_ROOT / "output" / "audit_report.jsonl"
+VECTOR_STORE_STATE_PATH: Path = PROJECT_ROOT / "output" / "vector_store_state.json"
+
+# Giữ lại các biến cũ dạng chuỗi để tương thích ngược nếu cần
+INPUT_JSON: str = str(INPUT_JSON_PATH)
+OUTPUT_DOCS_DIR: str = str(OUTPUT_DOCS_PATH)
+OUTPUT_CHUNKS_JSONL: str = str(OUTPUT_CHUNKS_PATH)
+OUTPUT_AUDIT_JSONL: str = str(OUTPUT_AUDIT_PATH)
 
 
 # ============================================================

@@ -28,13 +28,15 @@ from typing import Dict, List, Optional
 
 from openai import OpenAI
 
+from .config import VECTOR_STORE_STATE_PATH, OUTPUT_CHUNKS_PATH
+
 # Buffer trên token_count thực tế của embedding_text, để OpenAI không cắt lại
 # chunk đã được chia cẩn thận ở Phase 1. Phải nằm trong khoảng OpenAI cho phép (100-4096).
 STATIC_CHUNK_MAX_TOKENS = 800
 STATIC_CHUNK_OVERLAP_TOKENS = 0  # Overlap đã được xử lý thủ công lúc pre-chunking
 
-DEFAULT_STATE_PATH = Path("vector_store_state.json")
-DEFAULT_CHUNKS_PATH = Path("chunks.jsonl")
+DEFAULT_STATE_PATH = VECTOR_STORE_STATE_PATH
+DEFAULT_CHUNKS_PATH = OUTPUT_CHUNKS_PATH
 
 
 # ============================================================

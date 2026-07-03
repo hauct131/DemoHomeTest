@@ -18,15 +18,24 @@ Cách chạy:
     python3 verify_vector_store.py
 """
 
+import sys
+from pathlib import Path
+
+# Thêm project root vào sys.path để import src/
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+from src import config
+
 import json
 from collections import Counter, defaultdict
-from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import OpenAI
 
-CHUNKS_PATH = Path("chunks.jsonl")
-STATE_PATH = Path("vector_store_state.json")
+CHUNKS_PATH = config.OUTPUT_CHUNKS_PATH
+STATE_PATH = config.VECTOR_STORE_STATE_PATH
 
 
 def content_hash_of(chunk: dict) -> str:

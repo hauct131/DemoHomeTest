@@ -8,6 +8,4 @@ __pycache__/
 *.pyc
 
 # Dữ liệu đầu ra (không cần commit)
-docs/
-chunks.jsonl
-audit_report.jsonl
+output/

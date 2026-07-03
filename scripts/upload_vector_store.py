@@ -16,6 +16,11 @@ import shutil
 import sys
 from pathlib import Path
 
+# Thêm project root vào sys.path để import src/
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 from dotenv import load_dotenv
 
 from src.vector_store import (

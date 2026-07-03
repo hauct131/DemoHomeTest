@@ -10,12 +10,12 @@ from bs4 import BeautifulSoup
 
 from . import config
 from .utils import slugify, count_tokens
-from .html_cleaning import (
+from .html_cleaner import (
     clean_html,
     rewrite_internal_links,
     build_id_to_slug_map,
 )
-from .markdown_conversion import (
+from .markdown_converter import (
     html_to_markdown,
     normalize_markdown,
 )

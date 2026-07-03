@@ -4,7 +4,7 @@ Pipeline: optisigns_articles.json (Zendesk Help Center dump)
            -> chunks.jsonl (dùng thẳng để embed vào vector DB)
 
 Chạy:
-    python3 build_rag_corpus.py
+    python3 build.py
 
 Yêu cầu thư viện:
     pip install beautifulsoup4 lxml markdownify tiktoken --break-system-packages

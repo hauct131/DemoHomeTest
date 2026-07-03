@@ -19,15 +19,24 @@ Yêu cầu: đã có OPENAI_API_KEY trong .env hoặc biến môi trường (dù
 chế với upload_vector_store.py).
 """
 
+import sys
+from pathlib import Path
+
+# Thêm project root vào sys.path để import src/
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+from src import config
+
 import argparse
 import json
 from collections import defaultdict
-from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import OpenAI
 
-DEFAULT_STATE_PATH = Path("vector_store_state.json")
+DEFAULT_STATE_PATH = config.VECTOR_STORE_STATE_PATH
 
 
 def load_vector_store_id(explicit_id: str | None) -> str:
