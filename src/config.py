@@ -10,11 +10,20 @@ from pathlib import Path
 # ============================================================
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-INPUT_JSON_PATH: Path = PROJECT_ROOT / "data" / "optisigns_articles.json"
-OUTPUT_DOCS_PATH: Path = PROJECT_ROOT / "output" / "articles"
-OUTPUT_CHUNKS_PATH: Path = PROJECT_ROOT / "output" / "chunks.jsonl"
-OUTPUT_AUDIT_PATH: Path = PROJECT_ROOT / "output" / "audit_report.jsonl"
-VECTOR_STORE_STATE_PATH: Path = PROJECT_ROOT / "output" / "vector_store_state.json"
+# QUAN TRỌNG: Railway volume được mount vào PROJECT_ROOT/"data" (xem log
+# "Saved -> /app/data/optisigns_articles.json"). Mọi file cần PERSIST giữa
+# các lần chạy/deploy (đặc biệt là vector_store_state.json - dùng để delta
+# upload) BẮT BUỘC phải nằm trong "data/", KHÔNG được để ở "output/" vì
+# "output/" không nằm trong volume và sẽ bị xoá sạch mỗi lần container
+# restart/redeploy -> gây ra hiện tượng "chạy lại từ đầu" trên Railway dù
+# local vẫn chạy tiếp được bình thường.
+DATA_DIR: Path = PROJECT_ROOT / "data"
+
+INPUT_JSON_PATH: Path = DATA_DIR / "optisigns_articles.json"
+OUTPUT_DOCS_PATH: Path = DATA_DIR / "output" / "articles"
+OUTPUT_CHUNKS_PATH: Path = DATA_DIR / "output" / "chunks.jsonl"
+OUTPUT_AUDIT_PATH: Path = DATA_DIR / "output" / "audit_report.jsonl"
+VECTOR_STORE_STATE_PATH: Path = DATA_DIR / "vector_store_state.json"
 
 # Giữ lại các biến cũ dạng chuỗi để tương thích ngược nếu cần
 INPUT_JSON: str = str(INPUT_JSON_PATH)
