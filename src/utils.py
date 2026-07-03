@@ -58,7 +58,7 @@ def _init_token_counter() -> None:
         import tiktoken
         enc = tiktoken.get_encoding("cl100k_base")
         _token_counter = lambda text: len(enc.encode(text))
-    except ImportError:
+    except Exception:
         # Fallback: ~4 ký tự = 1 token
         _token_counter = lambda text: max(1, len(text) // 4)
 
