@@ -157,30 +157,83 @@ def upload_one_chunk(
     """
     Upload 1 chunk (đã ghi ra file_path) lên Vector Store, có retry.
 
+    QUAN TRỌNG: 3 bước (upload bytes / attach vào vector store / poll tới khi
+    completed) được tách riêng và `file_id` được NHỚ LẠI giữa các lần retry.
+
+    Lý do: `upload_and_poll()` gộp cả 3 bước trong 1 lệnh. Nếu bước upload+attach
+    đã thành công thật sự trên OpenAI nhưng bước poll gặp lỗi mạng thoáng qua
+    (timeout, connection reset...), code cũ bắt exception rồi retry TỪ ĐẦU -> gọi
+    lại upload_and_poll() -> tạo file MỚI cho cùng 1 chunk, trong khi file cũ vẫn
+    tồn tại trên OpenAI (đây chính là nguyên nhân sinh ra file trùng chunk_id).
+
+    Cách sửa: nhớ `file_id` ngay sau khi tạo được. Nếu attempt sau bị lỗi ở bước
+    poll, lần retry tiếp theo SẼ KHÔNG upload lại bytes -> chỉ resume poll (hoặc
+    attach lại nếu cần) trên đúng file_id đã có, không bao giờ tạo file thứ 2.
+
     Returns:
         dict kết quả: {chunk_id, status, openai_file_id | error}
     """
     last_err: Optional[Exception] = None
+    file_id: Optional[str] = None   # nhớ giữa các lần retry: đã upload bytes chưa
+    attached: bool = False          # nhớ giữa các lần retry: đã attach vào store chưa
+
+    attributes = {
+        "chunk_id": chunk["chunk_id"],
+        "article_id": str(chunk["article_id"]),
+        "article_title": chunk["article_title"][:200],
+        "source_url": chunk["source_url"],
+    }
+    chunking_strategy = {
+        "type": "static",
+        "static": {
+            "max_chunk_size_tokens": STATIC_CHUNK_MAX_TOKENS,
+            "chunk_overlap_tokens": STATIC_CHUNK_OVERLAP_TOKENS,
+        },
+    }
+
     for attempt in range(1, max_retries + 1):
         try:
-            with open(file_path, "rb") as f:
-                vs_file = client.vector_stores.files.upload_and_poll(
-                    vector_store_id=vector_store_id,
-                    file=f,
-                    attributes={
-                        "chunk_id": chunk["chunk_id"],
-                        "article_id": str(chunk["article_id"]),
-                        "article_title": chunk["article_title"][:200],
-                        "source_url": chunk["source_url"],
-                    },
-                    chunking_strategy={
-                        "type": "static",
-                        "static": {
-                            "max_chunk_size_tokens": STATIC_CHUNK_MAX_TOKENS,
-                            "chunk_overlap_tokens": STATIC_CHUNK_OVERLAP_TOKENS,
-                        },
-                    },
+            # Bước 1: upload bytes -> file object. CHỈ làm nếu chưa có file_id
+            # từ lần thử trước (tránh tạo file thứ 2 cho cùng chunk).
+            if file_id is None:
+                with open(file_path, "rb") as f:
+                    file_obj = client.files.create(file=f, purpose="assistants")
+                file_id = file_obj.id
+
+            # Bước 2: attach vào vector store. CHỈ làm nếu chưa attach thành
+            # công ở lần thử trước -> nếu lần này chỉ bước poll (Bước 3) lỗi,
+            # retry sẽ KHÔNG gọi lại attach, tránh double-attach/tạo file phụ.
+            if not attached:
+                try:
+                    vs_file = client.vector_stores.files.create(
+                        vector_store_id=vector_store_id,
+                        file_id=file_id,
+                        attributes=attributes,
+                        chunking_strategy=chunking_strategy,
+                    )
+                except Exception as attach_err:
+                    msg = str(attach_err).lower()
+                    if "already" in msg or "exists" in msg or "duplicate" in msg:
+                        vs_file = client.vector_stores.files.retrieve(
+                            vector_store_id=vector_store_id, file_id=file_id
+                        )
+                    else:
+                        raise
+                attached = True
+            else:
+                # đã attach ở lần thử trước, chỉ bước poll bị lỗi -> lấy lại
+                # trạng thái hiện tại rồi poll tiếp, không attach lại
+                vs_file = client.vector_stores.files.retrieve(
+                    vector_store_id=vector_store_id, file_id=file_id
                 )
+
+            # Bước 3: poll tới khi xong
+            while vs_file.status == "in_progress":
+                time.sleep(1)
+                vs_file = client.vector_stores.files.retrieve(
+                    vector_store_id=vector_store_id, file_id=file_id
+                )
+
             if vs_file.status == "completed":
                 return {
                     "chunk_id": chunk["chunk_id"],
@@ -197,9 +250,12 @@ def upload_one_chunk(
             last_err = e
             if attempt < max_retries:
                 time.sleep(2 ** attempt)  # backoff: 2s, 4s, 8s
+                # file_id/attached (nếu đã đạt) được GIỮ NGUYÊN cho lần thử kế tiếp
+
     return {
         "chunk_id": chunk["chunk_id"],
         "status": "failed",
+        "openai_file_id": file_id,  # có thể đã tồn tại dù coi là failed -> để dễ dọn sau
         "error": str(last_err),
     }
 

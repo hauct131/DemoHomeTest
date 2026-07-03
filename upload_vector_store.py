@@ -133,7 +133,12 @@ def main():
 
     result_map = {r["chunk_id"]: r for r in results}
 
-    # Cập nhật state với kết quả
+    # Cập nhật state với kết quả — LƯU NGAY SAU MỖI CHUNK, không đợi hết batch.
+    # Lý do: nếu script bị gián đoạn (mất mạng, Ctrl+C, rate limit...) giữa
+    # chừng, những chunk đã upload thành công TRƯỚC đó vẫn phải được ghi vào
+    # state ngay lập tức. Nếu chỉ save_state() 1 lần ở cuối, các file đã thật
+    # sự tồn tại trên OpenAI nhưng chưa kịp ghi state sẽ bị coi là "chưa
+    # upload" ở lần chạy sau -> upload lại -> tạo file trùng trên OpenAI.
     added, updated, failed = 0, 0, 0
     for c in to_upload:
         r = result_map.get(c["chunk_id"])
@@ -150,6 +155,7 @@ def main():
                 "content_hash": content_hash(build_file_content(c)),
                 "status": "completed",
             }
+            save_state(state, DEFAULT_STATE_PATH)  # lưu ngay, không đợi hết loop
             if was_new:
                 added += 1
             else:
@@ -158,7 +164,6 @@ def main():
             failed += 1
             print(f"    LỖI chunk {c['chunk_id']}: {r.get('error')}")
 
-    save_state(state, DEFAULT_STATE_PATH)
     shutil.rmtree(TMP_UPLOAD_DIR, ignore_errors=True)
 
     print("\n" + "=" * 60)
