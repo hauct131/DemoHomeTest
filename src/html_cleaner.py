@@ -13,6 +13,50 @@ from bs4 import BeautifulSoup
 
 from . import config
 
+def clean_and_prepare_html(raw_html: str, id_to_slug: Dict[int, str]) -> str:
+    """
+    Thực hiện làm sạch HTML, rewrite links và xử lý ảnh trên MỘT thực thể soup duy nhất.
+    """
+    soup = BeautifulSoup(raw_html or "", "lxml")
+    
+    # 1. Strip unwanted tags
+    for tag_name in config.TAGS_TO_STRIP:
+        for tag in soup.find_all(tag_name):
+            tag.decompose()
+            
+    # 2. Strip internal TOC
+    body_root = soup.body if soup.body else soup
+    first_elements = body_root.find_all(recursive=False)
+    if first_elements:
+        first = first_elements[0]
+        if first.name == "ul":
+            links = first.find_all("a", href=True)
+            if links and all(a["href"].startswith("#") for a in links):
+                first.decompose()
+                
+    # 3. Strip anchor targets
+    for a in soup.find_all("a", attrs={"name": True}):
+        if not a.get_text(strip=True):
+            a.decompose()
+            
+    # 4. Rewrite internal links
+    for a_tag in soup.find_all("a", href=True):
+        match = re.search(r"/articles/(\d+)(-[^/#]*)?(?:#.*)?$", a_tag["href"])
+        if match:
+            article_id = int(match.group(1))
+            if article_id in id_to_slug:
+                a_tag["href"] = id_to_slug[article_id]
+                
+    # 5. Replace images with placeholders
+    for img in soup.find_all("img"):
+        src = img.get("src", "")
+        filename = src.rsplit("/", 1)[-1].split("?")[0] if src else "unknown"
+        alt = img.get("alt", "").strip()
+        img.replace_with(f"[Image: {alt or filename}]")
+        
+    return str(soup)
+
+
 
 def strip_unwanted_tags(soup: BeautifulSoup) -> BeautifulSoup:
     """

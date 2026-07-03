@@ -11,8 +11,7 @@ from bs4 import BeautifulSoup
 from . import config
 from .utils import slugify, count_tokens
 from .html_cleaner import (
-    clean_html,
-    rewrite_internal_links,
+    clean_and_prepare_html,
     build_id_to_slug_map,
 )
 from .markdown_converter import (
@@ -157,18 +156,9 @@ def process_article(
         Không raise exception, xử lý gracefully nếu có lỗi
     """
     try:
-        # Bước 1: Clean HTML
+        # Bước 1-3: Clean HTML, Rewrite internal links, Replace images with placeholders in one pass
         raw_html = article.get("body") or ""
-        cleaned_html = clean_html(raw_html)
-        
-        # Bước 2: Rewrite internal links
-        cleaned_html = rewrite_internal_links(cleaned_html, id_to_slug)
-        
-        # Bước 3: Replace images with placeholder (trước convert markdown)
-        from .utils import replace_images_with_placeholder
-        cleaned_html = replace_images_with_placeholder(cleaned_html)
-        
-        # Bước 4: Convert to Markdown
+        cleaned_html = clean_and_prepare_html(raw_html, id_to_slug)
         markdown_body = html_to_markdown(cleaned_html)
         
         # Bước 5: Normalize Markdown (xóa boilerplate, v.v.)
