@@ -1,0 +1,27 @@
+# Secrets - NEVER bake into image, pass via env vars at runtime instead
+.env
+.env.sample
+
+# Version control
+.git
+.gitignore
+
+# Local virtualenv (rebuilt fresh inside the image via requirements.txt)
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Local run artifacts (regenerated fresh on each container run)
+output/
+.tmp_vector_store_files/
+
+# Docs / misc not needed at runtime
+docs/
+image.png
+tests/
+.dockerignore
+Dockerfile
+README.md

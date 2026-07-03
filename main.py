@@ -8,13 +8,14 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from dotenv import load_dotenv
+from scripts.crawl import run_crawl
 from src.pipeline import run_pipeline
 from src import config
 from scripts.upload_vector_store import run_upload
 
 
 def main():
-    """Chạy toàn bộ pipeline (Scrape/Parse -> Chunk -> Audit -> Upload)."""
+    """Chạy toàn bộ pipeline (Scrape -> Parse -> Chunk -> Audit -> Upload)."""
     # Load environment variables
     load_dotenv()
 
@@ -23,7 +24,16 @@ def main():
         os.environ["OPENAI_API_KEY"] = os.environ["API_KEY"]
 
     try:
-        # 1. Chạy Scraping, Cleaning, Chunking và Auditing (Phase 1)
+        # 0. Re-scrape Zendesk Help Center -> ghi đè data/optisigns_articles.json
+        #    Bước bắt buộc để job hàng ngày phát hiện bài viết mới/cập nhật;
+        #    nếu bỏ qua, pipeline sẽ luôn xử lý lại data cũ.
+        try:
+            run_crawl(verbose=True)
+        except Exception as e:
+            print(f"[main] Cảnh báo: Re-scrape thất bại ({e}). "
+                  f"Sẽ dùng lại data/optisigns_articles.json hiện có nếu tồn tại.")
+
+        # 1. Chạy Parsing, Cleaning, Chunking và Auditing (Phase 1)
         stats = run_pipeline(
             input_json=config.INPUT_JSON_PATH,
             output_docs=config.OUTPUT_DOCS_PATH,
