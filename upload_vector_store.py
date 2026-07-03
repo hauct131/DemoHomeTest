@@ -5,9 +5,10 @@ Cách chạy:
     python3 upload_vector_store.py                # upload full (lần đầu)
     python3 upload_vector_store.py --dry-run       # build file nội dung, KHÔNG gọi API
     python3 upload_vector_store.py --force         # upload lại toàn bộ, bỏ qua delta-skip
+    python3 upload_vector_store.py --limit 20      # chỉ upload 20 chunk đầu (test nhanh)
 
 Sau khi chạy xong, script in ra vector_store_id — dùng ID này để gắn vào
-Assistant (Playground UI): Assistant -> Tools -> File Search -> Add vector store.
+Playground (Prompts/Chat -> Tools -> File search -> chọn/dán Vector Store ID).
 """
 
 import argparse
@@ -63,6 +64,11 @@ def main():
     parser.add_argument("--force", action="store_true", help="Upload lại toàn bộ, bỏ qua delta-skip")
     parser.add_argument("--chunks", default=str(DEFAULT_CHUNKS_PATH), help="Đường dẫn chunks.jsonl")
     parser.add_argument("--max-workers", type=int, default=8, help="Số thread upload song song")
+    parser.add_argument(
+        "--limit", type=int, default=None,
+        help="Giới hạn số chunk upload trong lần chạy này (vd --limit 20 để test nhanh "
+             "trước khi upload toàn bộ 1300+ chunk). Không set = upload hết."
+    )
     args = parser.parse_args()
 
     load_dotenv()
@@ -90,6 +96,12 @@ def main():
     print(f"\n[2] Phân loại delta:")
     print(f"    Cần upload (mới/đổi): {len(to_upload)}")
     print(f"    Bỏ qua (không đổi):   {len(unchanged)}")
+
+    if args.limit is not None:
+        held_back = max(0, len(to_upload) - args.limit)
+        to_upload = to_upload[:args.limit]
+        print(f"    --limit {args.limit} -> chỉ upload {len(to_upload)} chunk "
+              f"(giữ lại {held_back} chunk khác cho lần chạy sau)")
 
     if args.dry_run:
         print("\n[DRY-RUN] Build nội dung file mẫu (không gọi OpenAI API)...")
@@ -119,10 +131,7 @@ def main():
         client, vector_store_id, to_upload, file_paths, max_workers=args.max_workers
     )
 
-    result_map = {
-        r["chunk_id"]: r
-        for r in results
-    }
+    result_map = {r["chunk_id"]: r for r in results}
 
     # Cập nhật state với kết quả
     added, updated, failed = 0, 0, 0
@@ -157,10 +166,12 @@ def main():
     print("=" * 60)
     print(f"Added:   {added}")
     print(f"Updated: {updated}")
-    print(f"Skipped: {len(unchanged)}")
+    print(f"Skipped (không đổi): {len(unchanged)}")
+    if args.limit is not None:
+        print(f"Giữ lại do --limit:  {held_back}")
     print(f"Failed:  {failed}")
     print(f"\nVector Store ID: {vector_store_id}")
-    print("-> Gắn ID này vào Assistant trong Playground: Tools > File Search > Vector Store")
+    print("-> Playground: Prompts/Chat > Tools > File search > dán Vector Store ID này")
     print("=" * 60)
 
 
