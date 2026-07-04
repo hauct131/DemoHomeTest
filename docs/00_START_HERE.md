@@ -22,27 +22,51 @@ File `build.py` (1 monolithic file, 700+ lines) đã được refactor thành m�
 ##  Project Structure (NEW)
 
 ```
-Home_Test_CTH/
-├── src/                    [NEW] Source modules
-│   ├── config.py             All constants & config
-│   ├── utils.py             Utility functions
-│   ├── html_cleaning.py     HTML processing
-│   ├── markdown_conversion.py   Markdown processing
-│   ├── chunking.py           Chunking logic
-│   ├── audit.py             Quality checks
-│   └── pipeline.py          Main orchestration
+DemoHomeTest/
+├── data/                       ← Raw and state data directory
+│   ├── optisigns_articles.json ← Zendesk raw help articles dump
+│   ├── vector_store_state.json ← OpenAI Vector Store synchronization state
+│   └── output/                 ← Pipeline outputs
+│       ├── articles/           ← Cleaned Markdown help files (.md)
+│       ├── chunks.jsonl        ← Prepared semantic chunks for embedding
+│       └── audit_report.jsonl  ← Audit report with flagged quality issues
 │
-├── main.py                 [NEW] Entry point
-├── requirements.txt        [NEW] Dependencies
+├── docs/                       ← Documentation files
+│   ├── 00_START_HERE.md        ← Refactor completion summary (this file)
+│   ├── DEVELOPMENT.md          ← Developer guide
+│   ├── FIRST_RUN.md            ← First-time setup and run guide
+│   ├── QUICK_REF.md            ← Pipeline quick reference
+│   ├── REFACTOR_SUMMARY.md     ← Technical refactoring summary
+│   ├── USAGE.md                ← Comprehensive usage guide
+│   └── VIDEO_SCRIPT.md         ← Video narration and demo script
 │
-├── README.md               [NEW] Overview
-├── USAGE.md                [NEW] Usage guide (15KB)
-├── DEVELOPMENT.md          [NEW] Developer guide (17KB)
-├── QUICK_REF.md           [NEW] Quick reference
-├── FIRST_RUN.md           [NEW] First run guide
-├── REFACTOR_SUMMARY.md    [NEW] Technical summary
+├── scripts/                    ← Operational and maintenance scripts
+│   ├── cleanup_duplicate_files.py ← Deduplication helper for output files
+│   ├── crawl.py                ← Scraper to download raw articles from Zendesk
+│   ├── upload_vector_store.py  ← Incremental chunk loader to OpenAI
+│   └── verify_vector_store.py  ← QA checker for OpenAI Vector Store files
 │
-└── [unchanged: docs/, optisigns_articles.json, build.py]
+├── src/                        ← Core application logic package
+│   ├── __init__.py             ← Python package marker
+│   ├── audit.py                ← Chunk QC and quality auditing criteria
+│   ├── chunking.py             ← Logic to split text by headings and size
+│   ├── config.py               ← Global path constants, limits, and patterns
+│   ├── html_cleaner.py         ← RegEx and BeautifulSoup HTML sanitizers
+│   ├── markdown_converter.py   ← HTML-to-Markdown conversion engine
+│   ├── pipeline.py             ← End-to-end orchestration coordinator
+│   ├── utils.py                ← Token counting and slug generation utilities
+│   └── vector_store.py         ← OpenAI vector store API connector
+│
+├── tests/                      ← Test suites
+│   ├── test_text_processing.py ← Unit tests for HTML and markdown cleaners
+│   └── test_vector_store_upload.py ← Mocked tests for OpenAI delta-sync
+│
+├── .env.sample                 ← Template for local environment variables
+├── .gitignore                  ← Git file exclusion rules
+├── Dockerfile                  ← Container configuration for Railway cron job
+├── main.py                     ← Main command entry point
+├── README.md                   ← Project landing page and quick setup
+└── requirements.txt            ← Python library dependencies list
 ```
 
 ---
@@ -59,16 +83,16 @@ pip3 install --break-system-packages -r requirements.txt
 python3 main.py
 
 # 3. Check output
-ls docs/
-head chunks.jsonl | python3 -m json.tool
+ls data/output/articles/
+head data/output/chunks.jsonl | python3 -m json.tool
 ```
 
 ### Output
 
 ```
-docs/*.md                 → Cleaned markdown with front-matter
-chunks.jsonl             → JSONL for vector DB embedding
-audit_report.jsonl       → Quality report
+data/output/articles/*.md  → Cleaned markdown with front-matter
+data/output/chunks.jsonl   → JSONL for vector DB embedding
+data/output/audit_report.jsonl → Quality report
 ```
 
 ---
@@ -218,9 +242,9 @@ pip3 install --break-system-packages -r requirements.txt
 python3 main.py
 
 # Check output
-ls docs/ | head -20
-head chunks.jsonl | python3 -m json.tool
-head audit_report.jsonl | python3 -m json.tool
+ls data/output/articles/ | head -20
+head data/output/chunks.jsonl | python3 -m json.tool
+head data/output/audit_report.jsonl | python3 -m json.tool
 
 # Customize
 # Edit src/config.py (one place for everything!)
@@ -235,7 +259,7 @@ head audit_report.jsonl | python3 -m json.tool
 
 1. **Install dependencies**: See "Quick Start" above
 2. **Run first time**: `python3 main.py`
-3. **Check output**: Verify docs/, chunks.jsonl created
+3. **Check output**: Verify data/output/articles/ and data/output/chunks.jsonl created
 4. **Review docs**: Read README.md, USAGE.md
 5. **Customize if needed**: Edit src/config.py
 6. **Integrate**: Use chunks for RAG, vector DB, etc.
@@ -258,8 +282,8 @@ head audit_report.jsonl | python3 -m json.tool
 - [x] Tách logic thành các module riên biệt
 - [x] `config.py` chứa tất cả constants
 - [x] `utils.py` có các utility functions
-- [x] `html_cleaning.py` cho HTML processing
-- [x] `markdown_conversion.py` cho Markdown
+- [x] `html_cleaner.py` cho HTML processing
+- [x] `markdown_converter.py` cho Markdown
 - [x] `chunking.py` cho chunking logic
 - [x] `audit.py` cho quality checks
 - [x] `pipeline.py` điều phối toàn bộ

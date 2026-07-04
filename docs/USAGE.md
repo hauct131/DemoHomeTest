@@ -40,13 +40,13 @@ python3 main.py
 
 ```bash
 # Markdown files
-ls -la docs/ | head -10
+ls -la data/output/articles/ | head -10
 
 # Chunks JSONL (mỗi dòng = 1 chunk)
-head -1 chunks.jsonl | python3 -m json.tool
+head -1 data/output/chunks.jsonl | python3 -m json.tool
 
 # Audit report
-head -5 audit_report.jsonl
+head -5 data/output/audit_report.jsonl
 ```
 
 ---
@@ -54,32 +54,32 @@ head -5 audit_report.jsonl
 ## Cấu trúc Project
 
 ```
-Home_Test_CTH/
+DemoHomeTest/
+├── data/                        #  Data directory
+│   ├── optisigns_articles.json  #  Input (Zendesk dump)
+│   ├── vector_store_state.json  #  OpenAI Vector Store sync state
+│   └── output/                  #  Output directory
+│       ├── articles/            #  Output: Markdown files
+│       │   ├── how-to-install-optisigns.md
+│       │   ├── troubleshooting-guide.md
+│       │   └── ...
+│       ├── chunks.jsonl         #  Output: Chunks for embedding
+│       └── audit_report.jsonl   #  Output: Quality report
+│
 ├── src/
 │   ├── __init__.py              # Package marker
-│   ├── config.py                #   ALL constants & config
+│   ├── config.py                #  ALL constants & config
 │   ├── utils.py                 #  Utility functions
-│   ├── html_cleaning.py         #  HTML cleaning
-│   ├── markdown_conversion.py   #  HTML -> Markdown
-│   ├── chunking.py              #   Chunking logic
+│   ├── html_cleaner.py          #  HTML cleaning
+│   ├── markdown_converter.py    #  HTML -> Markdown
+│   ├── chunking.py              #  Chunking logic
 │   ├── audit.py                 #  Quality audit
 │   └── pipeline.py              #  Main orchestration
 │
 ├── main.py                      #  Entry point
 ├── requirements.txt             #  Dependencies
 ├── README.md                    #  Overview
-├── USAGE.md                     #  This file
-│
-├── optisigns_articles.json      #  Input (Zendesk dump)
-│
-├── docs/                        #  Output: Markdown files
-│   ├── how-to-install-optisigns.md
-│   ├── troubleshooting-guide.md
-│   └── ...
-│
-├── chunks.jsonl                 #  Output: Chunks for embedding
-├── audit_report.jsonl          #   Output: Quality report
-└── build.py                     # (old, deprecated)
+└── USAGE.md                     #  This file
 ```
 
 ---
@@ -119,7 +119,7 @@ OptiSigns RAG Pipeline
     Processed: 376
     Total chunks: 1,234
 
-[6] Writing chunks to chunks.jsonl...
+[6] Writing chunks to data/output/chunks.jsonl...
     Done: 1,234 chunks
 
 [7] Running audit...
@@ -135,13 +135,13 @@ Bảng thống kê issues:
   starts_mid_sentence       :   15 ( 1.2%)
   too_short                 :   12 ( 1.0%)
 
-Chi tiết từng chunk lỗi: audit_report.jsonl
+Chi tiết từng chunk lỗi: data/output/audit_report.jsonl
 ============================================================
 
- Output markdown: docs/ (376 files)
- Output chunks:   chunks.jsonl (1,234 lines)
- Output audit:    audit_report.jsonl
- Avg chunks/article: 3.3
+ * Output markdown: data/output/articles/ (376 files)
+ * Output chunks:   data/output/chunks.jsonl (1,234 lines)
+ * Output audit:    data/output/audit_report.jsonl
+ * Avg chunks/article: 3.3
 ============================================================
 ```
 
@@ -221,7 +221,7 @@ TAGS_TO_STRIP.append("details")
 
 ## Output Details
 
-### 1. Markdown Files (`docs/*.md`)
+### 1. Markdown Files (`data/output/articles/*.md`)
 
 **Format**:
 ```markdown
@@ -256,7 +256,7 @@ labels: ["installation", "windows", "setup"]
 - Import vào CMS
 - Sync vào knowledge base
 
-### 2. Chunks JSONL (`chunks.jsonl`)
+### 2. Chunks JSONL (`data/output/chunks.jsonl`)
 
 **Format** (1 JSON object mỗi dòng):
 ```json
@@ -287,7 +287,7 @@ from openai import OpenAI
 client = OpenAI()
 
 # Đọc chunks
-with open("chunks.jsonl") as f:
+with open("data/output/chunks.jsonl") as f:
     for line in f:
         chunk = json.loads(line)
         
@@ -312,7 +312,7 @@ with open("chunks.jsonl") as f:
         )
 ```
 
-### 3. Audit Report (`audit_report.jsonl`)
+### 3. Audit Report (`data/output/audit_report.jsonl`)
 
 **Format** (1 JSON object mỗi dòng, chỉ chunks có issue):
 ```json
@@ -337,33 +337,33 @@ with open("chunks.jsonl") as f:
 **Giải quyết**:
 ```bash
 # Xem chunks có issue
-cat audit_report.jsonl | wc -l
+cat data/output/audit_report.jsonl | wc -l
 
 # Xem issue statistics
-jq -r '.issues[]' audit_report.jsonl | sort | uniq -c | sort -rn
+jq -r '.issues[]' data/output/audit_report.jsonl | sort | uniq -c | sort -rn
 
 # Xem preview của từng chunk
-jq '.chunk_id, .article_title, .issues, .text_preview' audit_report.jsonl
+jq '.chunk_id, .article_title, .issues, .text_preview' data/output/audit_report.jsonl
 ```
 
 ---
 
 ## Troubleshooting
 
-###  Error: File not found: optisigns_articles.json
+###  Error: File not found: data/optisigns_articles.json
 
 **Nguyên nhân**: Input JSON không ở đúng vị trí
 
 **Giải pháp**:
 ```bash
 # Kiểm tra file tồn tại
-ls -la optisigns_articles.json
+ls -la data/optisigns_articles.json
 
 # Nếu chưa có, copy từ nơi khác
-cp /path/to/optisigns_articles.json .
+cp /path/to/optisigns_articles.json data/
 
 # Hoặc thay đổi path trong config
-# src/config.py: INPUT_JSON = "path/to/my_articles.json"
+# src/config.py: INPUT_JSON_PATH = Path("path/to/my_articles.json")
 ```
 
 ###  Error: ModuleNotFoundError: No module named 'markdownify'
@@ -483,11 +483,11 @@ def enrich_chunk_with_custom_metadata(chunk, article):
 # Export sang CSV
 import csv
 
-with open("chunks.csv", "w", newline="", encoding="utf-8") as f:
+with open("data/output/chunks.csv", "w", newline="", encoding="utf-8") as f:
     writer = csv.DictWriter(f, fieldnames=["chunk_id", "article_id", "heading", "text"])
     writer.writeheader()
     
-    with open("chunks.jsonl") as jf:
+    with open("data/output/chunks.jsonl") as jf:
         for line in jf:
             chunk = json.loads(line)
             writer.writerow({
@@ -507,7 +507,7 @@ from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
 from llama_index.core.embeddings import OpenAIEmbedding
 
 # Load markdown documents
-documents = SimpleDirectoryReader("docs").load_data()
+documents = SimpleDirectoryReader("data/output/articles").load_data()
 
 # Create index
 embed_model = OpenAIEmbedding(model="text-embedding-3-small")
@@ -555,7 +555,7 @@ for chunk in all_chunks:
     buffer.append(chunk)
     
     if len(buffer) >= BATCH_SIZE:
-        with open("chunks.jsonl", "a") as f:
+        with open("data/output/chunks.jsonl", "a") as f:
             for c in buffer:
                 f.write(json.dumps(c, ensure_ascii=False) + "\n")
         buffer = []

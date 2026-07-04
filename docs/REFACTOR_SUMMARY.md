@@ -16,13 +16,12 @@ The project now matches the requested target structure:
 ```
 DemoHomeTest/
 ├── data/
-│   └── optisigns_articles.json
-│
-├── output/
-│   ├── articles/
-│   ├── chunks.jsonl
-│   ├── audit_report.jsonl
-│   └── vector_store_state.json
+│   ├── optisigns_articles.json
+│   ├── vector_store_state.json
+│   └── output/
+│       ├── articles/
+│       ├── chunks.jsonl
+│       └── audit_report.jsonl
 │
 ├── scripts/
 │   ├── crawl.py
@@ -59,10 +58,10 @@ DemoHomeTest/
 | Original Path | New Path | Description |
 | :--- | :--- | :--- |
 | `optisigns_articles.json` | `data/optisigns_articles.json` | Moved raw input JSON. |
-| `docs/*.md` | `output/articles/*.md` | Moved all generated markdown articles. |
-| `chunks.jsonl` | `output/chunks.jsonl` | Moved pipeline output chunks file. |
-| `audit_report.jsonl` | `output/audit_report.jsonl` | Moved pipeline audit report file. |
-| `vector_store_state.json` | `output/vector_store_state.json` | Moved vector store upload state tracking file. |
+| `docs/*.md` | `data/output/articles/*.md` | Moved all generated markdown articles. |
+| `chunks.jsonl` | `data/output/chunks.jsonl` | Moved pipeline output chunks file. |
+| `audit_report.jsonl` | `data/output/audit_report.jsonl` | Moved pipeline audit report file. |
+| `vector_store_state.json` | `data/vector_store_state.json` | Moved vector store upload state tracking file. |
 | `crawl.py` | `scripts/crawl.py` | Moved data crawler helper script. |
 | `upload_vector_store.py` | `scripts/upload_vector_store.py` | Moved OpenAI upload helper script. |
 | `verify_vector_store.py` | `scripts/verify_vector_store.py` | Moved OpenAI store verification helper script. |
@@ -82,10 +81,10 @@ DemoHomeTest/
 - Defined absolute path references using the resolved project root (`Path(__file__).resolve().parent.parent`).
 - Centralized all file paths:
   - `INPUT_JSON_PATH` -> `data/optisigns_articles.json`
-  - `OUTPUT_DOCS_PATH` -> `output/articles/`
-  - `OUTPUT_CHUNKS_PATH` -> `output/chunks.jsonl`
-  - `OUTPUT_AUDIT_PATH` -> `output/audit_report.jsonl`
-  - `VECTOR_STORE_STATE_PATH` -> `output/vector_store_state.json`
+  - `OUTPUT_DOCS_PATH` -> `data/output/articles/`
+  - `OUTPUT_CHUNKS_PATH` -> `data/output/chunks.jsonl`
+  - `OUTPUT_AUDIT_PATH` -> `data/output/audit_report.jsonl`
+  - `VECTOR_STORE_STATE_PATH` -> `data/vector_store_state.json`
 - Preserved string variables (`INPUT_JSON`, `OUTPUT_DOCS_DIR`, `OUTPUT_CHUNKS_JSONL`, `OUTPUT_AUDIT_JSONL`) pointing to the string versions of the new paths for backward compatibility.
 
 ### 3. Safe Execution Context for Scripts
@@ -93,7 +92,7 @@ DemoHomeTest/
 - This ensures scripts run successfully using `python3 scripts/<name>.py` from the root or any subdirectory without encountering `ModuleNotFoundError`.
 
 ### 4. GitIgnore Updates
-- Updated `.gitignore` to ignore the entire `output/` directory (which contains generated articles, chunks, audit report, and vector store state files) instead of the old `docs/` and individual file levels.
+- Updated `.gitignore` to ignore the entire `data/output/` directory (which contains generated articles, chunks, and audit report files) and the `data/vector_store_state.json` file.
 
 ### 5. `build.py`
 - Left untouched per rule 6 because it contains the entire legacy monolithic pipeline logic (does not simply delegate to `src.pipeline`).
@@ -102,8 +101,8 @@ DemoHomeTest/
 
 ## Verification
 - Ran existing tests successfully (`venv/bin/python3 -m tests.test_vector_store_upload`).
-- Executed `main.py` successfully and verified it generated all files in `output/` and `output/articles/` directory cleanly.
+- Executed `main.py` successfully and verified it generated all files in `data/output/` and `data/output/articles/` directory cleanly.
 - Verified that `verify_vector_store.py` runs successfully and retrieves store data correctly.
 
 ## Potential Breaking Changes
-- Scripts running outside this folder structure that hardcode the path `"docs"` or `"chunks.jsonl"` relative to their execution directory will need to point to `"output/articles"` and `"output/chunks.jsonl"`. By using `src/config.py`, all project scripts are fully insulated from this change.
+- Scripts running outside this folder structure that hardcode the path `"docs"` or `"chunks.jsonl"` relative to their execution directory will need to point to `"data/output/articles"` and `"data/output/chunks.jsonl"`. By using `src/config.py`, all project scripts are fully insulated from this change.

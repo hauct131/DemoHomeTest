@@ -10,9 +10,9 @@ pip3 install --break-system-packages -r requirements.txt
 python3 main.py
 
 # 3. Kiểm tra output
-ls -la docs/
-head chunks.jsonl | python3 -m json.tool
-wc -l audit_report.jsonl
+ls -la data/output/articles/
+head data/output/chunks.jsonl | python3 -m json.tool
+wc -l data/output/audit_report.jsonl
 ```
 
 ---
@@ -23,8 +23,8 @@ wc -l audit_report.jsonl
 src/
 ├── config.py          ←  TẤT CẢ config, constants
 ├── utils.py           ←  Utility functions
-├── html_cleaning.py   ←  HTML cleaning
-├── markdown_conversion.py  ←  Markdown
+├── html_cleaner.py    ←  HTML cleaning
+├── markdown_converter.py ←  Markdown
 ├── chunking.py        ←  Chunking logic
 ├── audit.py           ←  Audit/QC
 └── pipeline.py        ←  Main orchestration
@@ -63,10 +63,10 @@ BOILERPLATE_PHRASE_REGEXES.append(
 
 ```bash
 # Xem first chunk
-head -1 chunks.jsonl | python3 -m json.tool
+head -1 data/output/chunks.jsonl | python3 -m json.tool
 
 # Xem chunks có issue
-cat audit_report.jsonl | head -5 | python3 -m json.tool
+cat data/output/audit_report.jsonl | head -5 | python3 -m json.tool
 ```
 
 ### Export sang CSV
@@ -75,7 +75,7 @@ cat audit_report.jsonl | head -5 | python3 -m json.tool
 import json
 import csv
 
-with open("chunks.jsonl") as jf, open("chunks.csv", "w") as cf:
+with open("data/output/chunks.jsonl") as jf, open("data/output/chunks.csv", "w") as cf:
     reader = json.load(jf)
     writer = csv.DictWriter(cf, fieldnames=["chunk_id", "article_title", "text"])
     writer.writeheader()
@@ -97,14 +97,14 @@ from src.pipeline import load_articles, filter_empty_articles
 from src.pipeline import dedup_articles_by_title
 from src.chunking import chunk_markdown
 
-articles = load_articles("optisigns_articles.json")
+articles = load_articles("data/optisigns_articles.json")
 filtered, _ = filter_empty_articles(articles, 200)
 dedup, _ = dedup_articles_by_title(filtered)
 
 # Xử lý từng article
 for article in dedup[:5]:  # Chỉ 5 bài đầu
-    from src.html_cleaning import clean_html
-    from src.markdown_conversion import html_to_markdown, normalize_markdown
+    from src.html_cleaner import clean_html
+    from src.markdown_converter import html_to_markdown, normalize_markdown
     
     html = article["body"]
     cleaned = clean_html(html)
@@ -122,16 +122,16 @@ for article in dedup[:5]:  # Chỉ 5 bài đầu
 | Vấn đề | Giải pháp |
 |--------|----------|
 | `ModuleNotFoundError: markdownify` | `pip3 install --break-system-packages -r requirements.txt` |
-| `FileNotFoundError: optisigns_articles.json` | Đảm bảo file ở thư mục gốc cùng `main.py` |
+| `FileNotFoundError: data/optisigns_articles.json` | Đảm bảo file tồn tại ở `data/optisigns_articles.json` |
 | Pipeline chạy chậm | Giảm `MAX_CHUNK_TOKENS` trong `config.py` |
 | Output quá lớn | Tăng `MIN_BODY_TEXT_LEN` để bỏ articles ngắn |
-| Nhiều chunks có issue | Xem `audit_report.jsonl`, adjust config |
+| Nhiều chunks có issue | Xem `data/output/audit_report.jsonl`, adjust config |
 
 ---
 
 ##  Output Format
 
-### chunks.jsonl (mỗi dòng = 1 JSON object)
+### data/output/chunks.jsonl (mỗi dòng = 1 JSON object)
 
 ```json
 {
@@ -148,7 +148,7 @@ for article in dedup[:5]:  # Chỉ 5 bài đầu
 }
 ```
 
-### docs/*.md (Markdown with Front-Matter)
+### data/output/articles/*.md (Markdown with Front-Matter)
 
 ```markdown
 ---
@@ -166,7 +166,7 @@ labels: ["installation", "setup"]
 Content here...
 ```
 
-### audit_report.jsonl (chỉ chunks có issue)
+### data/output/audit_report.jsonl (chỉ chunks có issue)
 
 ```json
 {
@@ -202,8 +202,8 @@ Content here...
 |----------|--------|---------|
 | `run_pipeline()` | pipeline | Main orchestration |
 | `chunk_markdown()` | chunking | Create chunks |
-| `normalize_markdown()` | markdown_conversion | Clean markdown |
-| `clean_html()` | html_cleaning | Clean HTML |
+| `normalize_markdown()` | markdown_converter | Clean markdown |
+| `clean_html()` | html_cleaner | Clean HTML |
 | `audit_chunk()` | audit | Check quality |
 | `slugify()` | utils | Create file slugs |
 | `count_tokens()` | utils | Count tokens |
@@ -243,7 +243,7 @@ from openai import OpenAI
 
 client = OpenAI()
 
-with open("chunks.jsonl") as f:
+with open("data/output/chunks.jsonl") as f:
     for i, line in enumerate(f):
         if i >= 100:  # Process first 100
             break
@@ -268,7 +268,7 @@ from collections import Counter
 
 issues = Counter()
 
-with open("audit_report.jsonl") as f:
+with open("data/output/audit_report.jsonl") as f:
     for line in f:
         chunk = json.loads(line)
         issues.update(chunk["issues"])
@@ -280,8 +280,8 @@ for issue, count in issues.most_common():
 ### List all markdown files
 
 ```bash
-ls -1 docs/ | head -20
-find docs/ -name "*.md" | wc -l
+ls -1 data/output/articles/ | head -20
+find data/output/articles/ -name "*.md" | wc -l
 ```
 
 ---
@@ -289,18 +289,18 @@ find docs/ -name "*.md" | wc -l
 ##  Tips
 
 1. **Start small**: Test với 10-20 articles trước (edit config để increase `MIN_BODY_TEXT_LEN`)
-2. **Check audit**: Luôn kiểm tra `audit_report.jsonl` để xem chunk quality
+2. **Check audit**: Luôn kiểm tra `data/output/audit_report.jsonl` để xem chunk quality
 3. **Adjust tokens**: Nếu chunks quá dài, giảm `MAX_CHUNK_TOKENS`
-4. **Version control**: Git ignore: `docs/`, `chunks.jsonl`, `audit_report.jsonl`
-5. **Backup**: Lưu lại `chunks.jsonl` trước khi chạy lại pipeline (overwrites)
+4. **Version control**: Git ignore: `data/output/`
+5. **Backup**: Lưu lại `data/output/chunks.jsonl` trước khi chạy lại pipeline (overwrites)
 
 ---
 
 ##  Next Steps
 
 1. [ ] Run `python3 main.py`
-2. [ ] Check output: `ls docs/` `head chunks.jsonl`
-3. [ ] Review audit: `cat audit_report.jsonl`
+2. [ ] Check output: `ls data/output/articles/` `head data/output/chunks.jsonl`
+3. [ ] Review audit: `cat data/output/audit_report.jsonl`
 4. [ ] Adjust config if needed
 5. [ ] Embed chunks into Vector DB
 6. [ ] Build RAG application
