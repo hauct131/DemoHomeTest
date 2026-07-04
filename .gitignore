@@ -9,3 +9,5 @@ __pycache__/
 
 # Dữ liệu đầu ra (không cần commit)
 output/
+data/
+.tmp*
